@@ -128,7 +128,9 @@ template<int d> class ParticleFluid
 public:
 	Particles<d> particles; // low resolution
 	Particles<d> particles_H;
+	Particles<d> new_particles_H;
 	Array<int> parents_idx;
+	Array<int> prev_parents_idx;
 	Array<Array<int> > neighbors;
 	Array<Array<int> > surface_neighbors;
 	SpatialHashing<d> spatial_hashing;
@@ -140,7 +142,7 @@ public:
 	real viscosity_coef=(real)1e1;			////viscosity coefficient, used in Update_Viscosity_Force()
 	real kd=(real)1e2;						////stiffness for environmental collision response
 	VectorD g=VectorD::Unit(1)*(real)-1.;	////gravity
-	real threshold = .38; // threshold determining high resolution region
+	real threshold = .46; // threshold determining high resolution region
 	real surface_r = 1.6f;
 	
 	////Environment objects
@@ -268,8 +270,9 @@ public:
 
 	void Update_H()
 	{
+		prev_parents_idx = parents_idx;
 		parents_idx.clear();
-		std::cout << "??:" << parents_idx.size() << std::endl;
+		// std::cout << "??:" << parents_idx.size() << std::endl;
 		for (int i = 0 ; i < particles.Size() ; i++){
 			VectorD x_ij = VectorD::Zero();
 			for (int j = 0 ; j <  surface_neighbors[i].size() ; j++){
@@ -289,7 +292,7 @@ public:
 			}
 				
 		}
-		std::cout << "????:" << parents_idx.size() << std::endl;
+		// std::cout << "????:" << parents_idx.size() << std::endl;
 	}
 
 	void generate_H()
