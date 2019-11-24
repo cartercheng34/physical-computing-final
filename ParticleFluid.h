@@ -111,6 +111,25 @@ public:
 		/* Your implementation end */
 		return nbs.size()>0;
 	}
+	void Find_below(const VectorD& pos, Array<int>& below)
+	{
+		VectorDi current_cell = Cell_Coord(pos);
+		for (int i = 1; i < 10; i++)
+		{
+			auto below_cell = current_cell + Vector2i(0, i);
+			auto iter = voxels.find(below_cell);
+			if (iter != voxels.end()) 
+			{
+				// std::cout << "found!" << std::endl;
+				for (int j = 0; j < iter->second.size(); j++) 
+				{
+
+					below.push_back(iter->second[j]);
+				}
+			}
+		}
+		
+	}
 
 protected:	////Helper functions
 	VectorDi Cell_Coord(const VectorD& pos) const
@@ -142,8 +161,9 @@ public:
 	real viscosity_coef=(real)1e1;			////viscosity coefficient, used in Update_Viscosity_Force()
 	real kd=(real)1e2;						////stiffness for environmental collision response
 	VectorD g=VectorD::Unit(1)*(real)-1.;	////gravity
-	real threshold = .46; // threshold determining high resolution region
-	real surface_r = 1.6f;
+	real threshold_new = .48; // threshold determining high resolution region
+	real threshold_old = .4; // threshold for existing high resolution particles
+	real surface_r = 1.3f;
 	
 	////Environment objects
 	Array<ImplicitGeometry<d>* > env_objects;
@@ -184,6 +204,8 @@ public:
 		Update_Body_Force();
 		Update_Boundary_Collision_Force();
 		Update_H();
+		Update_boundary_region();
+		//add_layers();
 		// generate_H();
 
 		for(int i=0;i<particles.Size();i++){
@@ -272,27 +294,113 @@ public:
 	{
 		prev_parents_idx = parents_idx;
 		parents_idx.clear();
-		// std::cout << "??:" << parents_idx.size() << std::endl;
-		for (int i = 0 ; i < particles.Size() ; i++){
+		//std::cout << "??:" << parents_idx.size() << std::endl;
+		for (int i = 0 ; i < particles.Size() ; i++)
+		{
 			VectorD x_ij = VectorD::Zero();
-			for (int j = 0 ; j <  surface_neighbors[i].size() ; j++){
-				
-				x_ij += particles.X(surface_neighbors[i][j]);
-
-			}
-			real distance = (particles.X(i) - x_ij / surface_neighbors[i].size()).norm();
-			// std::cout << distance << std::endl;
-			if (distance > threshold){
-				// std::cout << "?" << std::endl;
+			if (surface_neighbors[i].size() == 1)//isolate particle
+			{
+				//std::cout << "empty nbs" << std::endl;
 				parents_idx.push_back(i);
-				particles.C(i) = 0.0f;
+				particles.H(i) = 1;
+				//particles.C(i) = 0.0f;
+
+				continue;
 			}
-			else{
-				particles.C(i) = 0.5f;
+			for (int j = 0 ; j <  surface_neighbors[i].size() ; j++)
+			{
+				//std::cout << "size nbs:" << surface_neighbors[i].size() << std::endl;
+				x_ij += particles.X(surface_neighbors[i][j]);
 			}
+			real distance = (particles.X(i) - x_ij / (surface_neighbors[i].size()-1)).norm();
+			// std::cout << distance << std::endl;
+			if ((particles.H(i)==0 && distance > threshold_new)
+				|| (particles.H(i) >0 && distance > threshold_old))
+			{
+				//Array<int> below;
+				parents_idx.push_back(i);
+				particles.H(i) = 1;
+				//particles.C(i) = 0.0f;
+				/*spatial_hashing.Find_below(particles.X(i), below);
+				if (!below.empty())
+				{
+					for (int j = 0; j < below.size(); j++) {
+					//	if (particles.H(j) == 0) {
+							//std::cout << "add below particle" << std::endl;
+							parents_idx.push_back(j);
+							particles.H(j) = 1;
+							particles.C(j) = 0.0f;
+						//}
+					}
+				}*/
+			}
+			//else{
+				//particles.C(i) = 0.5f;
+			//}
 				
 		}
-		// std::cout << "????:" << parents_idx.size() << std::endl;
+		
+		//std::cout << "parent_idx size:" << parents_idx.size() << std::endl;
+	}
+	void Update_boundary_region()
+	{
+		Array<int> boundary_idx;
+		if (!parents_idx.empty())
+		{
+			for (int i = 0; i < parents_idx.size(); i++)
+			{
+				//std::cout << "parent idx size:" << parents_idx.size() << std::endl;
+				bool flag_h = false;
+				bool flag_l = false;
+				for (int j = 0; j < surface_neighbors[parents_idx[i]].size(); j++)
+				{
+					if (particles.H(j) == 0)//if the particle has a low resolution neighbor, then set it to bondary
+					{
+						flag_l = true;
+						//std::cout << "parents_idx[i]: " << parents_idx[i];
+						//std::cout << "j = " << j;
+							//std::cout << " set idx to boundary:" << parents_idx[i] << std::endl;
+					}
+					if (particles.H(j) == 1 && j != parents_idx[i])
+					{
+						flag_h = true;
+					}
+					if (flag_l && flag_h)
+					{
+						boundary_idx.push_back(parents_idx[i]);
+						break;
+					}
+				}
+				
+			}
+		}
+		if (!boundary_idx.empty())
+		{
+			for (int k = 0; k < boundary_idx.size(); k++)
+			{
+				particles.H(boundary_idx[k]) = 2;
+			}
+		}
+
+		
+	}
+	void add_layers()
+	{
+		int parents_idx_size = parents_idx.size();
+		for (int i = 0; i < parents_idx_size; i++)
+		{
+			for (int j = 0; j < particles.Size(); j++)
+			{
+				real distance = (particles.X(i) - particles.X(j)).norm();
+				//std::cout << "distance: " << distance << std::endl;
+				if (particles.H(j)==0)
+				{
+					parents_idx.push_back(j);
+					particles.H(j) = 1;
+					particles.C(j) = 0.0;
+				}
+			}
+		}
 	}
 
 	void generate_H()
@@ -322,8 +430,6 @@ public:
 			for(int j=0;j<env_objects.size();j++){
 				real phi=env_objects[j]->Phi(particles.X(i));
 				if(phi<particles.R(i)){
-					
-
 					VectorD normal=env_objects[j]->Normal(particles.X(i));
 					particles.F(i)+=normal*kd*(particles.R(i)-phi)*particles.D(i);
 				}
