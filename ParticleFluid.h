@@ -146,7 +146,7 @@ template<int d> class ParticleFluid
 {using VectorD=Vector<real,d>;
 public:
 	Particles<d> particles; // low resolution
-	Particles<d> particles_H;
+	// Particles<d> particles_H;
 	Particles<d> new_particles_H;
 	Array<int> parents_idx;
 	Array<int> prev_parents_idx;
@@ -161,8 +161,8 @@ public:
 	real viscosity_coef=(real)1e1;			////viscosity coefficient, used in Update_Viscosity_Force()
 	real kd=(real)1e2;						////stiffness for environmental collision response
 	VectorD g=VectorD::Unit(1)*(real)-1.;	////gravity
-	real threshold_new = .48; // threshold determining high resolution region
-	real threshold_old = .4; // threshold for existing high resolution particles
+	real threshold_new = .4; // threshold determining high resolution region
+	real threshold_old = .3; // threshold for existing high resolution particles
 	real surface_r = 1.3f;
 	
 	////Environment objects
@@ -207,7 +207,7 @@ public:
 		Update_boundary_region();
 		generate_H();
 		//add_layers();
-		// generate_H();
+		
 
 		for(int i=0;i<particles.Size();i++){
 			particles.V(i)+=particles.F(i)/particles.D(i)*dt;
@@ -293,7 +293,7 @@ public:
 
 	void Update_H()
 	{
-		prev_parents_idx = parents_idx;
+		//prev_parents_idx = parents_idx;
 		parents_idx.clear();
 		//std::cout << "??:" << parents_idx.size() << std::endl;
 		for (int i = 0 ; i < particles.Size() ; i++)
@@ -322,22 +322,11 @@ public:
 				parents_idx.push_back(i);
 				particles.H(i) = 1;
 				//particles.C(i) = 0.0f;
-				/*spatial_hashing.Find_below(particles.X(i), below);
-				if (!below.empty())
-				{
-					for (int j = 0; j < below.size(); j++) {
-					//	if (particles.H(j) == 0) {
-							//std::cout << "add below particle" << std::endl;
-							parents_idx.push_back(j);
-							particles.H(j) = 1;
-							particles.C(j) = 0.0f;
-						//}
-					}
-				}*/
 			}
-			//else{
+			else{
 				//particles.C(i) = 0.5f;
-			//}
+				particles.H(i) = 0;
+			}
 				
 		}
 		
@@ -386,24 +375,7 @@ public:
 
 		
 	}
-	void add_layers()
-	{
-		int parents_idx_size = parents_idx.size();
-		for (int i = 0; i < parents_idx_size; i++)
-		{
-			for (int j = 0; j < particles.Size(); j++)
-			{
-				real distance = (particles.X(i) - particles.X(j)).norm();
-				//std::cout << "distance: " << distance << std::endl;
-				if (particles.H(j)==0)
-				{
-					parents_idx.push_back(j);
-					particles.H(j) = 1;
-					particles.C(j) = 0.0;
-				}
-			}
-		}
-	}
+
 
 	void Add_Particle_small(VectorD pos, real m = 1., real radius = 1., int idx = 0, VectorD v = VectorD::Zero())
 	{
@@ -436,20 +408,22 @@ public:
 		
 		
 		for (int i = 0 ; i < parents_idx.size() ; i++){
-			real L_radius = particles.R(parents_idx[i]);
-			real H_radius = L_radius / 8.0f;
-			real dx = 0.35f;
-			VectorD pos1 = particles.X(parents_idx[i]) + VectorD::Unit(0)*dx/4.0f + VectorD::Unit(1)*dx/4.0f;
-			VectorD pos2 = particles.X(parents_idx[i]) + VectorD::Unit(0)*dx/4.0f - VectorD::Unit(1)*dx/4.0f;
-			VectorD pos3 = particles.X(parents_idx[i]) - VectorD::Unit(0)*dx/4.0f + VectorD::Unit(1)*dx/4.0f;
-			VectorD pos4 = particles.X(parents_idx[i]) - VectorD::Unit(0)*dx/4.0f - VectorD::Unit(1)*dx/4.0f;
-			Add_Particle_small(pos1, particles.M(parents_idx[i]) / 8.0f, H_radius, parents_idx[i]);
-			Add_Particle_small(pos2, particles.M(parents_idx[i]) / 8.0f, H_radius, parents_idx[i]);
-			Add_Particle_small(pos3, particles.M(parents_idx[i]) / 8.0f, H_radius, parents_idx[i]);
-			Add_Particle_small(pos4, particles.M(parents_idx[i]) / 8.0f, H_radius, parents_idx[i]);
+			
+				real L_radius = particles.R(parents_idx[i]);
+				real H_radius = L_radius / 8.0f;
+				real dx = 0.35f;
+				VectorD pos1 = particles.X(parents_idx[i]) + VectorD::Unit(0)*dx/4.0f + VectorD::Unit(1)*dx/4.0f;
+				VectorD pos2 = particles.X(parents_idx[i]) + VectorD::Unit(0)*dx/4.0f - VectorD::Unit(1)*dx/4.0f;
+				VectorD pos3 = particles.X(parents_idx[i]) - VectorD::Unit(0)*dx/4.0f + VectorD::Unit(1)*dx/4.0f;
+				VectorD pos4 = particles.X(parents_idx[i]) - VectorD::Unit(0)*dx/4.0f - VectorD::Unit(1)*dx/4.0f;
+				Add_Particle_small(pos1, particles.M(parents_idx[i]) / 8.0f, H_radius, parents_idx[i]);
+				Add_Particle_small(pos2, particles.M(parents_idx[i]) / 8.0f, H_radius, parents_idx[i]);
+				Add_Particle_small(pos3, particles.M(parents_idx[i]) / 8.0f, H_radius, parents_idx[i]);
+				Add_Particle_small(pos4, particles.M(parents_idx[i]) / 8.0f, H_radius, parents_idx[i]);
+			
 		}
-		// std::cout << new_particles_H.Size() << std::endl;
-		// std::cout << parents_idx.size() << std::endl;
+		std::cout << new_particles_H.Size() << std::endl;
+		std::cout << parents_idx.size() << std::endl;
 	}
 
 

@@ -38,6 +38,13 @@ public:
 		    }
 		}
 
+		// for(int i = 0 ; i < 700 ; i++){
+		// 	VectorD pos;
+		// 	pos[0]=0.0f;//initial positon
+		// 	pos[1]=0.0f;
+		// 	Add_Particle_H(pos, 1.0f/8, 1.0f/2);
+		// }
+
 		bowl=new Bowl<d>(VectorD::Unit(1)*8,8);
 		fluid.env_objects.push_back(bowl);
 
@@ -61,10 +68,16 @@ public:
 
 		for(int i=0;i<fluid.particles.Size();i++){
 			Add_Solid_Circle(i);}
+		for(int i = 0 ; i < 700 ; i++){
+			Add_Solid_Circle_H(i);
+		}
 	}
 
 	void Sync_Simulation_And_Visualization_Data()
 	{
+
+
+		
 		// auto record_idx = fluid.parents_idx;
 		// auto delete_idx = fluid.prev_parents_idx;
 		
@@ -125,15 +138,21 @@ public:
 				
 			
 		// }
-		opengl_circles_H.clear();
-		for (int i = 0 ; i < fluid.parents_idx.size() ; i++){
 
-			Add_Solid_Circle_H(i*4);
-			Add_Solid_Circle_H(i*4+1);
-			Add_Solid_Circle_H(i*4+2);
-			Add_Solid_Circle_H(i*4+3);
-			
-		}
+		// opengl_circles_H.clear();
+		// for (int i = 0 ; i < fluid.parents_idx.size() ; i++){
+
+		// 	Add_Solid_Circle_H(i*4);
+		// 	Add_Solid_Circle_H(i*4+1);
+		// 	Add_Solid_Circle_H(i*4+2);
+		// 	Add_Solid_Circle_H(i*4+3);
+		// 	// opengl_circles_H[i*4]->Set_Data_Refreshed();
+		// 	// opengl_circles_H[i*4+1]->Set_Data_Refreshed();
+		// 	// opengl_circles_H[i*4+2]->Set_Data_Refreshed();
+		// 	// opengl_circles_H[i*4+3]->Set_Data_Refreshed();
+		// }
+		// std::cout << fluid.parents_idx.size() << std::endl;
+		// std::cout << opengl_circles_H.size() << std::endl;
 		
 		
 
@@ -196,6 +215,23 @@ public:
 
 			opengl_circle->Set_Data_Refreshed();
 		}
+		for (int j = 0 ; j < 700 ; j++){
+			auto opengl_circle = opengl_circles_H[j];
+			opengl_circle->visible = false;
+		}
+		for (int i = 0; i < fluid.new_particles_H.Size(); i++)
+		{
+			// OpenGLColor my_blue = OpenGLColor(0.0f, 0.0f, 1.f, 1.f);
+			// OpenGLColor my_red = OpenGLColor(1.0f, 0.0f, 0.f, 1.f);
+			OpenGLColor my_yellow = OpenGLColor(0.0f, 0.0f, 0.f, 1.f);
+			auto opengl_circle = opengl_circles_H[i];
+			opengl_circle->pos = V3(fluid.new_particles_H.X(i));
+			opengl_circle->visible = true;
+			
+			opengl_circle->color = my_yellow; // surface
+			
+			opengl_circle->Set_Data_Refreshed();
+		}
 		
 	}
 
@@ -241,15 +277,15 @@ protected:
 
 	void Add_Particle_H(VectorD pos, real m = 1., real radius = 1., int idx = 0, VectorD v = VectorD::Zero())
 	{
-		int i=fluid.particles_H.Add_Element();	////return the last element's index
-		fluid.particles_H.X(i)=pos;
-		fluid.particles_H.V(i)= v;
-		fluid.particles_H.R(i)= radius;
-		fluid.particles_H.M(i)=m;
-		fluid.particles_H.D(i)=1.;
-		fluid.particles_H.C(i) = 0.5f;
-		fluid.particles_H.I(i) = idx; // record parent idx
-		fluid.particles_H.H(i) = 0;
+		int i=fluid.new_particles_H.Add_Element();	////return the last element's index
+		fluid.new_particles_H.X(i)=pos;
+		fluid.new_particles_H.V(i)= v;
+		fluid.new_particles_H.R(i)= radius;
+		fluid.new_particles_H.M(i)=m;
+		fluid.new_particles_H.D(i)=1.;
+		fluid.new_particles_H.C(i) = 0.5f;
+		fluid.new_particles_H.I(i) = idx; // record parent idx
+		fluid.new_particles_H.H(i) = 0;
 	}
 
 	// void Add_Particle_small(VectorD pos, real m = 1., real radius = 1., int idx = 0, VectorD v = VectorD::Zero())
@@ -279,11 +315,12 @@ protected:
 
 	void Add_Solid_Circle_H(const int i)
 	{
-		OpenGLColor c(0.5f,0.0f,0.5f,1.f);
+		OpenGLColor c(0.0f,0.0f,0.0f,1.f);
 		auto opengl_circle=Add_Interactive_Object<OpenGLSolidCircle>();
+		opengl_circle->visible = false;
 		opengl_circles_H.push_back(opengl_circle);
-		opengl_circle->pos=V3(fluid.new_particles_H.X(i));
-		opengl_circle->radius=fluid.new_particles_H.R(i);
+		opengl_circle->pos=V3(fluid.particles.X(i));
+		opengl_circle->radius=fluid.particles.R(i) / 2.0;
 		opengl_circle->color = c;
 		opengl_circle->Set_Data_Refreshed();
 		opengl_circle->Initialize();
