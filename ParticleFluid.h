@@ -146,10 +146,10 @@ template<int d> class ParticleFluid
 {using VectorD=Vector<real,d>;
 public:
 	Particles<d> particles; // low resolution
-	Particles<d> particles_H;
+	// Particles<d> particles_H;
 	Particles<d> new_particles_H;
 	Array<int> parents_idx;
-	Array<int> prev_parents_idx;
+	// Array<int> prev_parents_idx;
 	Array<Array<int> > neighbors;
 	Array<Array<int> > surface_neighbors;
 	SpatialHashing<d> spatial_hashing;
@@ -161,9 +161,10 @@ public:
 	real viscosity_coef=(real)1e1;			////viscosity coefficient, used in Update_Viscosity_Force()
 	real kd=(real)1e2;						////stiffness for environmental collision response
 	VectorD g=VectorD::Unit(1)*(real)-1.;	////gravity
-	real threshold_new = .48; // threshold determining high resolution region
-	real threshold_old = .4; // threshold for existing high resolution particles
-	real surface_r = 1.3f;
+	real threshold_new = .5; // threshold determining high resolution region
+	real threshold_old = .1; // threshold for existing high resolution particles
+	real surface_r = 1.4f;
+	real beta = 50.0f;
 	
 	////Environment objects
 	Array<ImplicitGeometry<d>* > env_objects;
@@ -190,6 +191,25 @@ public:
 		}
 	}
 
+	virtual void Update_Neighbors_H()
+	{
+		spatial_hashing.Clear_Voxels();
+		spatial_hashing.Update_Voxels(new_particles_H.XRef());
+		neighbors.clear();
+		surface_neighbors.clear();
+		
+		neighbors.resize(new_particles_H.Size());
+		surface_neighbors.resize(new_particles_H.Size());
+		for(int i=0;i<new_particles_H.Size();i++){
+			Array<int> nbs;	// H-H neighbors
+			Array<int> nbs2; // H-L neighbors
+			spatial_hashing.Find_Nbs(new_particles_H.X(i),new_particles_H.XRef(),kernel_radius,nbs);
+			neighbors[i]=nbs;
+			spatial_hashing.Find_Nbs(new_particles_H.X(i), particles.XRef(), kernel_radius, nbs2);
+			surface_neighbors[i] = nbs2;
+		}
+	}
+
 	virtual void Advance(const real dt)
 	{
 		for(int i=0;i<particles.Size();i++){
@@ -202,16 +222,50 @@ public:
 		Update_Pressure_Force();
 		Update_Viscosity_Force();
 		Update_Body_Force();
-		Update_Boundary_Collision_Force();
-		Update_H();
-		Update_boundary_region();
+		// Update_Boundary_Collision_Force();
+		
 		//add_layers();
-		// generate_H();
+		
 
 		for(int i=0;i<particles.Size();i++){
 			particles.V(i)+=particles.F(i)/particles.D(i)*dt;
-			particles.X(i)+=particles.V(i)*dt;}
+			particles.X(i)+=particles.V(i)*dt;
+			// std::cout << "big:" <<  particles.V(i)*dt << std::endl;
+		}
+
+		Update_H();
+		// Update_boundary_region();
+		generate_H();
+		Update_Neighbors_H();
+
+		
+		for(int j = 0 ; j < 3 ; j++){
+			Update_Density_H();
+			Update_Pressure_H();
+			Update_Pressure_Force_H();
+			Update_Viscosity_Force_H();
+			Update_Body_Force_H();
+			Update_Boundary_Collision_Force_H();
+
+
+			for(int i = 0 ; i < new_particles_H.Size() ; i++){
+				new_particles_H.V(i) += new_particles_H.F(i)/new_particles_H.D(i)*dt*6;
+				// std::cout << new_particles_H.V(i) << std::endl;
+				new_particles_H.X(i) += new_particles_H.V(i)*dt;
+				// std::cout << "small" << new_particles_H.V(i)*dt << std::endl;
+			}
+		}
+		Update_Feedback();
+
+		
 	}
+
+	void Update_Body_Force()
+	{
+		for(int i=0;i<particles.Size();i++){
+			particles.F(i)+=particles.D(i)*g;}	
+	}
+
 
 	//////////////////////////////////////////////////////////////////////////
 	////YOUR IMPLEMENTATION (P2 TASK): update the density (particles.D(i)) of each particle based on the kernel function (Wspiky)
@@ -258,9 +312,7 @@ public:
 				// if (i == 0) std::cout << "pos:" << neighbors[i].size() << std::endl;
 				VectorD x_ij = particles.X(i) - particles.X(neighbors[i][j]);
 				VectorD tmp_f = (particles.P(i) + particles.P(neighbors[i][j])) / 2.0f / particles.D(neighbors[i][j]) * particles.M(neighbors[i][j]) * kernel.gradientWspiky(x_ij);
-				// TD<decltype(tmp_f)> td;
-				// std::cout << "pressure:" << tmp_f <<std::endl;
-				// std::cout << "yo" << std::endl;
+				
 				particles.F(i) -= tmp_f;
 				// sleep(1);
 			}
@@ -292,7 +344,7 @@ public:
 
 	void Update_H()
 	{
-		prev_parents_idx = parents_idx;
+		// prev_parents_idx = parents_idx;
 		parents_idx.clear();
 		//std::cout << "??:" << parents_idx.size() << std::endl;
 		for (int i = 0 ; i < particles.Size() ; i++)
@@ -321,107 +373,126 @@ public:
 				parents_idx.push_back(i);
 				particles.H(i) = 1;
 				//particles.C(i) = 0.0f;
-				/*spatial_hashing.Find_below(particles.X(i), below);
-				if (!below.empty())
-				{
-					for (int j = 0; j < below.size(); j++) {
-					//	if (particles.H(j) == 0) {
-							//std::cout << "add below particle" << std::endl;
-							parents_idx.push_back(j);
-							particles.H(j) = 1;
-							particles.C(j) = 0.0f;
-						//}
-					}
-				}*/
 			}
-			//else{
-				//particles.C(i) = 0.5f;
-			//}
-				
-		}
-		
-		//std::cout << "parent_idx size:" << parents_idx.size() << std::endl;
-	}
-	void Update_boundary_region()
-	{
-		Array<int> boundary_idx;
-		if (!parents_idx.empty())
-		{
-			for (int i = 0; i < parents_idx.size(); i++)
-			{
-				//std::cout << "parent idx size:" << parents_idx.size() << std::endl;
-				bool flag_h = false;
-				bool flag_l = false;
-				for (int j = 0; j < surface_neighbors[parents_idx[i]].size(); j++)
-				{
-					if (particles.H(j) == 0)//if the particle has a low resolution neighbor, then set it to bondary
-					{
-						flag_l = true;
-						//std::cout << "parents_idx[i]: " << parents_idx[i];
-						//std::cout << "j = " << j;
-							//std::cout << " set idx to boundary:" << parents_idx[i] << std::endl;
-					}
-					if (particles.H(j) == 1 && j != parents_idx[i])
-					{
-						flag_h = true;
-					}
-					if (flag_l && flag_h)
-					{
-						boundary_idx.push_back(parents_idx[i]);
-						break;
-					}
-				}
-				
+			else{
+			// 	//particles.C(i) = 0.5f;
+				particles.H(i) = 0;
 			}
-		}
-		if (!boundary_idx.empty())
-		{
-			for (int k = 0; k < boundary_idx.size(); k++)
-			{
-				particles.H(boundary_idx[k]) = 2;
-			}
+			// if(distance > threshold_new) {
+			// 	parents_idx.push_back(i);
+			// 	particles.H(i) = 1;
+			// }
+			// else{
+			// 	particles.H(i) = 0;
+			// }
 		}
 
 		
+		
+		//std::cout << "parent_idx size:" << parents_idx.size() << std::endl;
 	}
-	void add_layers()
+
+	// void Update_boundary_region()
+	// {
+	// 	Array<int> boundary_idx;
+	// 	if (!parents_idx.empty())
+	// 	{
+	// 		for (int i = 0; i < parents_idx.size(); i++)
+	// 		{
+	// 			//std::cout << "parent idx size:" << parents_idx.size() << std::endl;
+	// 			bool flag_h = false;
+	// 			bool flag_l = false;
+	// 			for (int j = 0; j < surface_neighbors[parents_idx[i]].size(); j++)
+	// 			{
+	// 				if (particles.H(j) == 0)//if the particle has a low resolution neighbor, then set it to bondary
+	// 				{
+	// 					flag_l = true;
+	// 					//std::cout << "parents_idx[i]: " << parents_idx[i];
+	// 					//std::cout << "j = " << j;
+	// 						//std::cout << " set idx to boundary:" << parents_idx[i] << std::endl;
+	// 				}
+	// 				if (particles.H(j) == 1 && j != parents_idx[i])
+	// 				{
+	// 					flag_h = true;
+	// 				}
+	// 				if (flag_l && flag_h)
+	// 				{
+	// 					boundary_idx.push_back(parents_idx[i]);
+	// 					break;
+	// 				}
+	// 			}
+				
+	// 		}
+	// 	}
+	// 	if (!boundary_idx.empty())
+	// 	{
+	// 		for (int k = 0; k < boundary_idx.size(); k++)
+	// 		{
+	// 			particles.H(boundary_idx[k]) = 2;
+	// 		}
+	// 	}
+
+		
+	// }
+
+
+	void Add_Particle_small(VectorD pos, real m = 1., real radius = 1., int idx = 0, VectorD v = VectorD::Zero())
 	{
-		int parents_idx_size = parents_idx.size();
-		for (int i = 0; i < parents_idx_size; i++)
-		{
-			for (int j = 0; j < particles.Size(); j++)
-			{
-				real distance = (particles.X(i) - particles.X(j)).norm();
-				//std::cout << "distance: " << distance << std::endl;
-				if (particles.H(j)==0)
-				{
-					parents_idx.push_back(j);
-					particles.H(j) = 1;
-					particles.C(j) = 0.0;
-				}
-			}
-		}
+		int i=new_particles_H.Add_Element();	////return the last element's index
+		new_particles_H.X(i)=pos;
+		new_particles_H.V(i)= v;
+		new_particles_H.R(i)= radius;
+		new_particles_H.M(i)=m;
+		new_particles_H.D(i)=1.;
+		new_particles_H.C(i) = 0.5f;
+		new_particles_H.I(i) = idx; // record parent idx
+		new_particles_H.H(i) = 0;
 	}
 
 	void generate_H()
 	{
 		// for (int i = 0 ; i < parents_idx.size() ; i++){
-		// 	real L_radius = particles.R(parents_idx[i]);
-		// 	real H_radius = L_radius / 8.0f;
-		// 	real dx = 0.35f;
-		// 	VectorD pos1 = particles.X(parents_idx[i]) ;
+			// std::cout << "??:" << new_particles_H.Size() << std::endl;
+	
+		// delete small 
+		new_particles_H.X()->clear();
+		new_particles_H.V()->clear();
+		new_particles_H.F()->clear();
+		new_particles_H.C()->clear();
+		new_particles_H.R()->clear();
+		new_particles_H.P()->clear();
+		new_particles_H.D()->clear();
+		new_particles_H.I()->clear();
+
+		// std::cout << "??:" << new_particles_H.Size() << std::endl;
 			
-		// 	// Add_Particle_H(pos1, particles.M(parents_idx[i]) / 8.0f, H_radius);
+		for (int i = 0 ; i < parents_idx.size() ; i++){
 			
-		// }
+				real L_radius = particles.R(parents_idx[i]);
+				real H_radius = L_radius / 2.0f;
+				real dx = 0.35f;
+				VectorD pos1 = particles.X(parents_idx[i]) + VectorD::Unit(0)*dx/2.0f + VectorD::Unit(1)*dx/2.0f;
+				VectorD pos2 = particles.X(parents_idx[i]) + VectorD::Unit(0)*dx/2.0f - VectorD::Unit(1)*dx/2.0f;
+				VectorD pos3 = particles.X(parents_idx[i]) - VectorD::Unit(0)*dx/2.0f + VectorD::Unit(1)*dx/2.0f;
+				VectorD pos4 = particles.X(parents_idx[i]) - VectorD::Unit(0)*dx/2.0f - VectorD::Unit(1)*dx/2.0f;
+				Add_Particle_small(pos1, particles.M(parents_idx[i]) / 8.0f, H_radius, parents_idx[i]);
+				Add_Particle_small(pos2, particles.M(parents_idx[i]) / 8.0f, H_radius, parents_idx[i]);
+				Add_Particle_small(pos3, particles.M(parents_idx[i]) / 8.0f, H_radius, parents_idx[i]);
+				Add_Particle_small(pos4, particles.M(parents_idx[i]) / 8.0f, H_radius, parents_idx[i]);
+			
+		}
+		// std::cout << new_particles_H.Size() << std::endl;
+		// std::cout << parents_idx.size() << std::endl;
 	}
 
 
 
-	void Update_Body_Force()
+	void Update_Body_Force_H()
 	{
-		for(int i=0;i<particles.Size();i++){
-			particles.F(i)+=particles.D(i)*g;}	
+		for(int i=0;i<new_particles_H.Size();i++){
+			new_particles_H.F(i)+=new_particles_H.D(i)*g;
+			// std::cout << new_particles_H.D(i)*g << std::endl;
+		}	
 	}
 
 	void Update_Boundary_Collision_Force()
@@ -436,6 +507,130 @@ public:
 			}
 		}
 	}
+
+	void Update_Boundary_Collision_Force_H()
+	{
+		for(int i=0;i<new_particles_H.Size();i++){
+			for(int j=0;j<env_objects.size();j++){
+				real phi=env_objects[j]->Phi(new_particles_H.X(i));
+				if(phi<new_particles_H.R(i)){
+					VectorD normal=env_objects[j]->Normal(new_particles_H.X(i));
+					new_particles_H.F(i)+=normal*kd*(new_particles_H.R(i)-phi)*new_particles_H.D(i);
+				}
+			}
+		}
+	}
+
+	void Update_Density_H()
+	{
+		/* Your implementation start */
+
+		for (int i = 0 ; i < new_particles_H.Size() ; i++){
+			new_particles_H.D(i) = 0.0f;
+			for (int j = 0 ; j <  neighbors[i].size() ; j++){
+				// auto neighbor = particles[neighbors[i][j]];
+				auto x_ij = new_particles_H.X(i) - new_particles_H.X(neighbors[i][j]);
+				new_particles_H.D(i) += kernel.Wspiky(x_ij) * new_particles_H.M(neighbors[i][j]);
+			}
+			for (int j = 0 ; j <  surface_neighbors[i].size() ; j++){
+				// auto neighbor = particles[neighbors[i][j]];
+				auto x_ij = new_particles_H.X(i) - new_particles_H.X(surface_neighbors[i][j]);
+				new_particles_H.D(i) += kernel.Wspiky(x_ij) * new_particles_H.M(surface_neighbors[i][j]);
+			}
+			
+		}
+
+
+		/* Your implementation end */
+	}
+
+	void Update_Pressure_H()
+	{
+		/* Your implementation start */
+		for (int i = 0 ; i < new_particles_H.Size() ; i++){
+			new_particles_H.P(i) = pressure_density_coef * (new_particles_H.D(i) - density_0);
+			
+		}
+
+		/* Your implementation end */
+	}
+
+	void Update_Pressure_Force_H()
+	{
+		/* Your implementation start */
+
+		for (int i = 0 ; i < new_particles_H.Size() ; i++){
+			for (int j = 0 ; j <  neighbors[i].size() ; j++){
+				// auto neighbor = particles[neighbors[i][j]];
+				// if (i == 0) std::cout << "pos:" << neighbors[i].size() << std::endl;
+				VectorD x_ij = new_particles_H.X(i) - new_particles_H.X(neighbors[i][j]);
+				VectorD tmp_f = (new_particles_H.P(i) + new_particles_H.P(neighbors[i][j])) / 2.0f / new_particles_H.D(neighbors[i][j]) * new_particles_H.M(neighbors[i][j]) * kernel.gradientWspiky(x_ij);
+				
+				new_particles_H.F(i) -= tmp_f;
+				// sleep(1);
+			}
+			for (int j = 0 ; j <  surface_neighbors[i].size() ; j++){
+				// auto neighbor = particles[neighbors[i][j]];
+				// if (i == 0) std::cout << "pos:" << neighbors[i].size() << std::endl;
+				VectorD x_ij = new_particles_H.X(i) - new_particles_H.X(surface_neighbors[i][j]);
+				VectorD tmp_f = (new_particles_H.P(i) + new_particles_H.P(surface_neighbors[i][j])) / 2.0f / new_particles_H.D(surface_neighbors[i][j]) * new_particles_H.M(surface_neighbors[i][j]) * kernel.gradientWspiky(x_ij);
+				
+				new_particles_H.F(i) -= tmp_f;
+				// sleep(1);
+			}
+		}
+
+		/* Your implementation end */
+	}
+
+	void Update_Viscosity_Force_H()
+	{
+		/* Your implementation start */
+
+		for (int i = 0 ; i < new_particles_H.Size() ; i++){
+			for (int j = 0 ; j <  neighbors[i].size() ; j++){
+				// auto neighbor = particles[neighbors[i][j]];
+				auto x_ij = new_particles_H.X(i) - new_particles_H.X(neighbors[i][j]);
+				// f_viscosity *= VISCOSITY * PARTICLE_MASS;
+				// std::cout << (particles.V(neighbors[i][j]) - particles.V(i)) * kernel.laplacianWvis(x_ij) / particles.D(neighbors[i][j]) * particles.M(neighbors[i][j]) * viscosity_coef << std::endl;
+				new_particles_H.F(i) += (new_particles_H.V(neighbors[i][j]) - new_particles_H.V(i)) * kernel.laplacianWvis(x_ij) / new_particles_H.D(neighbors[i][j]) * new_particles_H.M(neighbors[i][j]) * viscosity_coef;
+			}
+			
+		}
+		for (int i = 0 ; i < new_particles_H.Size() ; i++){
+			for (int j = 0 ; j <  surface_neighbors[i].size() ; j++){
+				// auto neighbor = particles[neighbors[i][j]];
+				auto x_ij = new_particles_H.X(i) - new_particles_H.X(surface_neighbors[i][j]);
+				// f_viscosity *= VISCOSITY * PARTICLE_MASS;
+				// std::cout << (particles.V(neighbors[i][j]) - particles.V(i)) * kernel.laplacianWvis(x_ij) / particles.D(neighbors[i][j]) * particles.M(neighbors[i][j]) * viscosity_coef << std::endl;
+				new_particles_H.F(i) += (new_particles_H.V(surface_neighbors[i][j]) - new_particles_H.V(i)) * kernel.laplacianWvis(x_ij) / new_particles_H.D(surface_neighbors[i][j]) * new_particles_H.M(surface_neighbors[i][j]) * viscosity_coef;
+			}
+			
+		}
+
+		/* Your implementation end */
+	}
+
+	void Update_Feedback()
+	{
+		for (int i = 0; i < parents_idx.size(); i++)
+		{
+			VectorD feedback_force = VectorD::Zero();
+			VectorD tmp_v = VectorD::Zero();
+			for (int j = 0; j < new_particles_H.Size(); j++)
+			{
+				if (new_particles_H.I(j) == i)
+				{
+					VectorD x_ij = particles.X(parents_idx[i]) - new_particles_H.X(j);
+					 tmp_v +=  new_particles_H.V(j)* kernel.Wvis(x_ij);
+
+				}
+			}
+			feedback_force = beta * (particles.V(parents_idx[i]) - tmp_v);
+			particles.F(parents_idx[i]) += feedback_force;
+		}
+	}
+
 };
 
 #endif
