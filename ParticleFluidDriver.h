@@ -68,7 +68,7 @@ public:
 
 		for(int i=0;i<fluid.particles.Size();i++){
 			Add_Solid_Circle(i);}
-		for(int i = 0 ; i < 700 ; i++){
+		for(int i = 0 ; i < 1000 ; i++){
 			Add_Solid_Circle_H(i);
 		}
 	}
@@ -77,127 +77,12 @@ public:
 	{
 
 
-		
-		// auto record_idx = fluid.parents_idx;
-		// auto delete_idx = fluid.prev_parents_idx;
-		
-
-		// for (int i = 0; i < fluid.parents_idx.size(); i++) {
-		// 	bool find = false;
-		// 	for (int j = 0; j < fluid.prev_parents_idx.size(); j++) {
-		// 		if (fluid.parents_idx[i] == fluid.prev_parents_idx[j]) {
-		// 			find = true;
-
-		// 			break;
-		// 		}
-
-		// 	}
-		// 	if (!find)
-		// 		record_idx[i] = -1.0;
-		// }
-
-		// for (int i = 0; i < fluid.prev_parents_idx.size(); i++) {
-		// 	bool find = false;
-		// 	for (int j = 0; j < fluid.parents_idx.size(); j++) {
-		// 		// std::cout << fluid.prev_parents_idx[j] << std::endl;
-		// 		if (fluid.parents_idx[j] == fluid.prev_parents_idx[i]) {
-		// 			find = true;
-
-		// 			break;
-		// 		}
-
-		// 	}
-		// 	if (!find)
-		// 		delete_idx[i] = -1.0;
-		// }
-
-		// std::cout << "prev:" << fluid.particles_H.Size() << std::endl;
-		// for (int i = 0 ; i < fluid.parents_idx.size() ; i++){
-		// 	real L_radius = fluid.particles.R(fluid.parents_idx[i]);
-		// 	real H_radius = L_radius / 8.0f;
-		// 	real dx = 0.35f;
-		// 	VectorD pos1 = fluid.particles.X(fluid.parents_idx[i]) + VectorD::Unit(0)*dx/4.0f + VectorD::Unit(1)*dx/4.0f;
-		// 	VectorD pos2 = fluid.particles.X(fluid.parents_idx[i]) + VectorD::Unit(0)*dx/4.0f - VectorD::Unit(1)*dx/4.0f;
-		// 	VectorD pos3 = fluid.particles.X(fluid.parents_idx[i]) - VectorD::Unit(0)*dx/4.0f + VectorD::Unit(1)*dx/4.0f;
-		// 	VectorD pos4 = fluid.particles.X(fluid.parents_idx[i]) - VectorD::Unit(0)*dx/4.0f - VectorD::Unit(1)*dx/4.0f;
-		// 	if (record_idx[i] == -1.0){
-		// 		// add surface particles in fluid.particles_H
-		// 		Add_Particle_H(fluid.particles.X(fluid.parents_idx[i]), fluid.particles.M(fluid.parents_idx[i]) , L_radius, fluid.parents_idx[i]);
-		// 		// add small particles in fluid.new_particles_H
-		// 		Add_Particle_small(pos1, fluid.particles.M(fluid.parents_idx[i]) / 8.0f, H_radius, fluid.parents_idx[i]);
-		// 		Add_Particle_small(pos2, fluid.particles.M(fluid.parents_idx[i]) / 8.0f, H_radius, fluid.parents_idx[i]);
-		// 		Add_Particle_small(pos3, fluid.particles.M(fluid.parents_idx[i]) / 8.0f, H_radius, fluid.parents_idx[i]);
-		// 		Add_Particle_small(pos4, fluid.particles.M(fluid.parents_idx[i]) / 8.0f, H_radius, fluid.parents_idx[i]);
-
-		// 		//draw physical particles
-		// 		Add_Solid_Circle_H(i);
-		// 		Add_Solid_Circle_H(i+1);
-		// 		Add_Solid_Circle_H(i+2);
-		// 		Add_Solid_Circle_H(i+3);
-		// 	} // new particles that need to be drawn
-				
-			
-		// }
-
-		// opengl_circles_H.clear();
-		// for (int i = 0 ; i < fluid.parents_idx.size() ; i++){
-
-		// 	Add_Solid_Circle_H(i*4);
-		// 	Add_Solid_Circle_H(i*4+1);
-		// 	Add_Solid_Circle_H(i*4+2);
-		// 	Add_Solid_Circle_H(i*4+3);
-		// 	// opengl_circles_H[i*4]->Set_Data_Refreshed();
-		// 	// opengl_circles_H[i*4+1]->Set_Data_Refreshed();
-		// 	// opengl_circles_H[i*4+2]->Set_Data_Refreshed();
-		// 	// opengl_circles_H[i*4+3]->Set_Data_Refreshed();
-		// }
-		// std::cout << fluid.parents_idx.size() << std::endl;
-		// std::cout << opengl_circles_H.size() << std::endl;
-		
-		
-
-		// std::cout << "prev:" << fluid.prev_parents_idx.size() << std::endl;
-		// for (int i = fluid.prev_parents_idx.size() - 1; i >= 0; i--) {
-			
-		// 	if (delete_idx[i] == -1.0) {// old particles that need to be deleted
-		// 		//delete surface
-				
-		// 		fluid.particles_H.X()->erase(fluid.particles_H.X()->begin() + i);
-		// 		fluid.particles_H.V()->erase(fluid.particles_H.V()->begin() + i);
-		// 		fluid.particles_H.F()->erase(fluid.particles_H.F()->begin() + i);
-		// 		fluid.particles_H.C()->erase(fluid.particles_H.C()->begin() + i);
-		// 		fluid.particles_H.R()->erase(fluid.particles_H.R()->begin() + i);
-		// 		fluid.particles_H.P()->erase(fluid.particles_H.P()->begin() + i);
-		// 		fluid.particles_H.D()->erase(fluid.particles_H.D()->begin() + i);
-		// 		fluid.particles_H.I()->erase(fluid.particles_H.I()->begin() + i);
-				
-		// 		for(int j = 0 ; j < 4 ; j++){
-		// 			// delete small 
-		// 			fluid.new_particles_H.X()->erase(fluid.new_particles_H.X()->begin() + i*4);
-		// 			fluid.new_particles_H.V()->erase(fluid.new_particles_H.V()->begin() + i*4);
-		// 			fluid.new_particles_H.F()->erase(fluid.new_particles_H.F()->begin() + i*4);
-		// 			fluid.new_particles_H.C()->erase(fluid.new_particles_H.C()->begin() + i*4);
-		// 			fluid.new_particles_H.R()->erase(fluid.new_particles_H.R()->begin() + i*4);
-		// 			fluid.new_particles_H.P()->erase(fluid.new_particles_H.P()->begin() + i*4);
-		// 			fluid.new_particles_H.D()->erase(fluid.new_particles_H.D()->begin() + i*4);
-		// 			fluid.new_particles_H.I()->erase(fluid.new_particles_H.I()->begin() + i*4);
-		// 			opengl_circles_H.erase(opengl_circles_H.begin() + i*4);
-		// 			// opengl_circles_H[i + j]->Set_Data_Refreshed();
-		// 		}
-
-		// 	}
-		// }
-
-		// std::cout << "deduct" << fluid.particles_H.Size() << std::endl;
-		// std::cout << "surface:" << fluid.particles_H.Size() << std::endl;
-		// std::cout << "small:" << fluid.new_particles_H.Size() << std::endl;
-
-
+		int count = 0;
 		for (int i = 0; i < fluid.particles.Size(); i++)
 		{
 			OpenGLColor my_blue = OpenGLColor(0.0f, 0.0f, 1.f, 1.f);
 			OpenGLColor my_red = OpenGLColor(1.0f, 0.0f, 0.f, 1.f);
-			OpenGLColor my_yellow = OpenGLColor(1.0f, 1.0f, 0.f, 1.f);
+			OpenGLColor my_yellow = OpenGLColor(1.0f, 1.0f, 0.f, 0.5f);
 			auto opengl_circle = opengl_circles[i];
 			opengl_circle->pos = V3(fluid.particles.X(i));
 			if (fluid.particles.H(i) == 0)
@@ -207,15 +92,21 @@ public:
 			else if (fluid.particles.H(i) == 1)
 			{
 				opengl_circle->color = my_yellow; // surface
+				count++;
 			}
 			else if (fluid.particles.H(i) == 2)
 			{
 				opengl_circle->color = my_red; // boundary
+				count++;
 			}
 
 			opengl_circle->Set_Data_Refreshed();
 		}
-		for (int j = 0 ; j < 700 ; j++){
+
+		// std::cout <<"cnt:" << count <<std::endl;
+		// std::cout << "parents:" << fluid.parents_idx.size() <<std::endl;
+		// std::cout << fluid.new_particles_H.Size() << std::endl;
+		for (int j = 0 ; j < 1000 ; j++){
 			auto opengl_circle = opengl_circles_H[j];
 			opengl_circle->visible = false;
 		}
@@ -223,12 +114,15 @@ public:
 		{
 			// OpenGLColor my_blue = OpenGLColor(0.0f, 0.0f, 1.f, 1.f);
 			// OpenGLColor my_red = OpenGLColor(1.0f, 0.0f, 0.f, 1.f);
-			OpenGLColor my_yellow = OpenGLColor(0.0f, 0.0f, 0.f, 1.f);
+			OpenGLColor my_black = OpenGLColor(0.0f, 0.0f, 0.f, 1.f);
 			auto opengl_circle = opengl_circles_H[i];
 			opengl_circle->pos = V3(fluid.new_particles_H.X(i));
+			opengl_circle->radius=fluid.new_particles_H.R(i) ;
+			// std::cout << "r:" << fluid.new_particles_H.R(i)  << std::endl;
+			// std::cout << "R2:" << fluid.particles.R(i)  << std::endl;
 			opengl_circle->visible = true;
 			
-			opengl_circle->color = my_yellow; // surface
+			opengl_circle->color = my_black; // surface
 			
 			opengl_circle->Set_Data_Refreshed();
 		}
